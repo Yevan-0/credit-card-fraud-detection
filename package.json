@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "@tensorflow/tfjs": "^4.22.0"
+    "@tensorflow/tfjs": "^4.22.0",
+    "csvtojson": "^2.0.14",
+    "danfojs": "^1.2.0"
   }
 }
