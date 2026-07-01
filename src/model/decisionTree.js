@@ -1,4 +1,3 @@
-const { prelu } = require("@tensorflow/tfjs");
 const { splitDataset, calculateGini, weightedGini } = require("./giniHelpers");
 
 const getUniqueValues = (rows, featureIndices) => {
@@ -61,6 +60,16 @@ const getMajorityClass = (labels) => {
   return majorityClass
 }
 
+const getRandomFeatureSubset = (totalFeatures, subsetSize) => {
+  const set = new Set();
+  while (set.size < subsetSize) {
+    const randomNum = Math.floor(Math.random() * totalFeatures);
+    set.add(randomNum)
+  }
+  const array = Array.from(set);
+  return array;
+}
+
 const buildTree = (rows, labels, depth, maxDepth) => {
   if (calculateGini(labels) === 0) {
     return { isLeaf: true, prediction: getMajorityClass(labels) }
@@ -71,12 +80,52 @@ const buildTree = (rows, labels, depth, maxDepth) => {
   if (labels.length < 2) {
     return { isLeaf: true, prediction: getMajorityClass(labels) }
   }
+
+  // pick random feature subset
+  const featureIndices = getRandomFeatureSubset(rows[0].length, Math.floor(Math.sqrt(rows[0].length)))
+
+  // find the best split using that subset
+  const { bestFeatureIndex, bestThreshold } = findBestSplit(rows, labels, featureIndices)
+
+  // if no valid split was found, return a leaf
+  if (bestFeatureIndex === null) {
+    return { isLeaf: true, prediction: getMajorityClass(labels) }
+  }
+
+  // split the data using the best split
+  const { leftRow, leftLabel, rightRow, rightLabel } = splitDataset(rows, labels, bestFeatureIndex, bestThreshold)
+
+  // recurse into left and right
+  const leftNode = buildTree(leftRow, leftLabel, depth + 1, maxDepth)
+  const rightNode = buildTree(rightRow, rightLabel, depth + 1, maxDepth)
+
+  // return a decision node
+  return { isLeaf: false, featureIndex: bestFeatureIndex, threshold: bestThreshold, left: leftNode, right: rightNode }
 }
 
-// TODO: make recursive part
-const getRandomFeatureSubset = (totalFeature, subsetSize) => {
+const predictTree = (node, row) => {
+  if (node.isLeaf === true) {
+    return node.prediction
+  }
 
+  if (row[node.featureIndex] <= node.threshold) {
+    return predictTree(node.left, row);
+  }
+  else {
+    return predictTree(node.right, row);
+  }
 }
 
+const rows = [
+  [2, 5],
+  [4, 1],
+  [6, 8],
+  [1, 3]
+]
+const labels = [0, 1, 0, 1]
 
-module.exports = { getUniqueValues, findBestSplit }
+const tree = buildTree(rows, labels, 0, 3)
+console.log(predictTree(tree, [2, 5]))  // expect 0
+console.log(predictTree(tree, [4, 1]))  // expect 1 
+
+module.exports = { getUniqueValues, findBestSplit, buildTree }
